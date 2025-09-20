@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.IntSize
 import java.util.UUID
@@ -18,13 +19,16 @@ data class TextElement(
     var fontFamily: FontFamily = FontFamily.Default,
     var fontWeight: FontWeight = FontWeight.Normal,
     var fontStyle: FontStyle = FontStyle.Normal,
-    var textDecoration: TextDecoration = TextDecoration.None
+    var textDecoration: TextDecoration = TextDecoration.None,
+    var textAlign: TextAlign = TextAlign.Center // Default to center
 )
 
 data class EditorState(
     val textElements: List<TextElement> = emptyList(),
     val selectedElementId: String? = null,
     val isAddTextDialogOpen: Boolean = false,
+    val isFontSizeDialogOpen: Boolean = false, // For number input
+    val elementToRename: TextElement? = null,
     val canvasSize: IntSize = IntSize.Zero,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false
@@ -32,7 +36,12 @@ data class EditorState(
 
 sealed class EditorAction {
     data class AddText(val text: String) : EditorAction()
+    data class UpdateText(val elementId: String, val newText: String) : EditorAction()
     data class SelectElement(val elementId: String?) : EditorAction()
+    data class OpenRenameDialog(val element: TextElement) : EditorAction()
+    object CloseRenameDialog : EditorAction()
+    object OpenFontSizeDialog : EditorAction() // For number input
+    object CloseFontSizeDialog : EditorAction() // For number input
     data class MoveElement(val elementId: String, val newPosition: Offset) : EditorAction()
     data class UpdateCanvasSize(val newSize: IntSize) : EditorAction()
     object ShowAddTextDialog : EditorAction()
@@ -42,11 +51,13 @@ sealed class EditorAction {
     object SaveDrag : EditorAction()
 
     sealed class SelectedElementAction : EditorAction() {
+        data class SetFontSize(val size: Int) : SelectedElementAction() // Direct size set
         object IncreaseFontSize : SelectedElementAction()
         object DecreaseFontSize : SelectedElementAction()
         object ToggleBold : SelectedElementAction()
         object ToggleItalic : SelectedElementAction()
         object ToggleUnderline : SelectedElementAction()
+        object ToggleAlignment : SelectedElementAction()
         data class ChangeFontFamily(val fontFamily: FontFamily) : SelectedElementAction()
     }
 }

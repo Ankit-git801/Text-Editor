@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.ViewModel
 import com.celebrare.texteditor.model.EditorAction
@@ -49,6 +50,11 @@ class TextEditorViewModel : ViewModel() {
     fun handleAction(action: EditorAction) {
         when (action) {
             is EditorAction.AddText -> addText(action.text)
+            is EditorAction.UpdateText -> updateText(action.elementId, action.newText)
+            is EditorAction.OpenRenameDialog -> updateState(state.copy(elementToRename = action.element))
+            is EditorAction.CloseRenameDialog -> updateState(state.copy(elementToRename = null))
+            is EditorAction.OpenFontSizeDialog -> updateState(state.copy(isFontSizeDialogOpen = true))
+            is EditorAction.CloseFontSizeDialog -> updateState(state.copy(isFontSizeDialogOpen = false))
             is EditorAction.MoveElement -> moveElement(action.elementId, action.newPosition)
             is EditorAction.SelectElement -> updateState(state.copy(selectedElementId = action.elementId))
             is EditorAction.UpdateCanvasSize -> updateState(state.copy(canvasSize = action.newSize))
@@ -63,33 +69,25 @@ class TextEditorViewModel : ViewModel() {
 
     private fun addText(text: String) {
         val currentState = state
-        val newElement = TextElement(
-            text = text,
-            position = Offset(currentState.canvasSize.width / 2f - 50f, currentState.canvasSize.height / 2f - 50f)
-        )
-        val newState = currentState.copy(
-            textElements = currentState.textElements + newElement,
-            selectedElementId = newElement.id,
-            isAddTextDialogOpen = false
-        )
-        saveStateToHistory(newState)
+        val textWidth = 24 * text.length * 0.6f
+        val textHeight = 24 * 1.2f
+        val initialX = (currentState.canvasSize.width / 2f) - (textWidth / 2f)
+        val initialY = (currentState.canvasSize.height / 2f) - (textHeight / 2f)
+        val newElement = TextElement(text = text, position = Offset(initialX.coerceAtLeast(0f), initialY.coerceAtLeast(0f)))
+        saveStateToHistory(currentState.copy(textElements = currentState.textElements + newElement, selectedElementId = newElement.id, isAddTextDialogOpen = false))
+    }
+
+    private fun updateText(elementId: String, newText: String) {
+        val newElements = state.textElements.map { if (it.id == elementId) it.copy(text = newText) else it }
+        saveStateToHistory(state.copy(textElements = newElements))
     }
 
     private fun moveElement(elementId: String, newPosition: Offset) {
-        val currentState = state
-        val elementToMove = currentState.textElements.find { it.id == elementId } ?: return
-
-        val textWidth = elementToMove.fontSize * elementToMove.text.length * 0.6f
-        val textHeight = elementToMove.fontSize * 1.2f
-        val clampedX = newPosition.x.coerceIn(0f, currentState.canvasSize.width - textWidth)
-        val clampedY = newPosition.y.coerceIn(0f, currentState.canvasSize.height - textHeight)
-
-        val newState = currentState.copy(
-            textElements = currentState.textElements.map {
-                if (it.id == elementId) it.copy(position = Offset(clampedX, clampedY)) else it
+        updateState(state.copy(
+            textElements = state.textElements.map {
+                if (it.id == elementId) it.copy(position = newPosition) else it
             }
-        )
-        updateState(newState)
+        ))
     }
 
     private fun applyToSelectedElement(action: EditorAction.SelectedElementAction) {
@@ -99,11 +97,20 @@ class TextEditorViewModel : ViewModel() {
         val newElements = currentState.textElements.map { element ->
             if (element.id == selectedId) {
                 when (action) {
-                    EditorAction.SelectedElementAction.IncreaseFontSize -> element.copy(fontSize = (element.fontSize + 2).coerceAtMost(100))
-                    EditorAction.SelectedElementAction.DecreaseFontSize -> element.copy(fontSize = (element.fontSize - 2).coerceAtLeast(10))
-                    EditorAction.SelectedElementAction.ToggleBold -> element.copy(fontWeight = if (element.fontWeight == FontWeight.Bold) FontWeight.Normal else FontWeight.Bold)
-                    EditorAction.SelectedElementAction.ToggleItalic -> element.copy(fontStyle = if (element.fontStyle == FontStyle.Italic) FontStyle.Normal else FontStyle.Italic)
-                    EditorAction.SelectedElementAction.ToggleUnderline -> element.copy(textDecoration = if (element.textDecoration == TextDecoration.Underline) TextDecoration.None else TextDecoration.Underline)
+                    is EditorAction.SelectedElementAction.SetFontSize -> element.copy(fontSize = action.size.coerceIn(10, 100))
+                    is EditorAction.SelectedElementAction.IncreaseFontSize -> element.copy(fontSize = (element.fontSize + 2).coerceAtMost(100))
+                    is EditorAction.SelectedElementAction.DecreaseFontSize -> element.copy(fontSize = (element.fontSize - 2).coerceAtLeast(10))
+                    is EditorAction.SelectedElementAction.ToggleBold -> element.copy(fontWeight = if (element.fontWeight == FontWeight.Bold) FontWeight.Normal else FontWeight.Bold)
+                    is EditorAction.SelectedElementAction.ToggleItalic -> element.copy(fontStyle = if (element.fontStyle == FontStyle.Italic) FontStyle.Normal else FontStyle.Italic)
+                    is EditorAction.SelectedElementAction.ToggleUnderline -> element.copy(textDecoration = if (element.textDecoration == TextDecoration.Underline) TextDecoration.None else TextDecoration.Underline)
+                    is EditorAction.SelectedElementAction.ToggleAlignment -> {
+                        val nextAlignment = when (element.textAlign) {
+                            TextAlign.Start -> TextAlign.Center
+                            TextAlign.Center -> TextAlign.End
+                            else -> TextAlign.Start
+                        }
+                        element.copy(textAlign = nextAlignment) // Only change the alignment state
+                    }
                     is EditorAction.SelectedElementAction.ChangeFontFamily -> element.copy(fontFamily = action.fontFamily)
                 }
             } else {
