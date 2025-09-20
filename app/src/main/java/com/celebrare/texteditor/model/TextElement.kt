@@ -20,14 +20,14 @@ data class TextElement(
     var fontWeight: FontWeight = FontWeight.Normal,
     var fontStyle: FontStyle = FontStyle.Normal,
     var textDecoration: TextDecoration = TextDecoration.None,
-    var textAlign: TextAlign = TextAlign.Center // Default to center
+    var textAlign: TextAlign = TextAlign.Center
 )
 
 data class EditorState(
     val textElements: List<TextElement> = emptyList(),
     val selectedElementId: String? = null,
     val isAddTextDialogOpen: Boolean = false,
-    val isFontSizeDialogOpen: Boolean = false, // For number input
+    val isFontSizeDialogOpen: Boolean = false,
     val elementToRename: TextElement? = null,
     val canvasSize: IntSize = IntSize.Zero,
     val canUndo: Boolean = false,
@@ -40,8 +40,8 @@ sealed class EditorAction {
     data class SelectElement(val elementId: String?) : EditorAction()
     data class OpenRenameDialog(val element: TextElement) : EditorAction()
     object CloseRenameDialog : EditorAction()
-    object OpenFontSizeDialog : EditorAction() // For number input
-    object CloseFontSizeDialog : EditorAction() // For number input
+    object OpenFontSizeDialog : EditorAction()
+    object CloseFontSizeDialog : EditorAction()
     data class MoveElement(val elementId: String, val newPosition: Offset) : EditorAction()
     data class UpdateCanvasSize(val newSize: IntSize) : EditorAction()
     object ShowAddTextDialog : EditorAction()
@@ -51,7 +51,7 @@ sealed class EditorAction {
     object SaveDrag : EditorAction()
 
     sealed class SelectedElementAction : EditorAction() {
-        data class SetFontSize(val size: Int) : SelectedElementAction() // Direct size set
+        data class SetFontSize(val size: Int) : SelectedElementAction()
         object IncreaseFontSize : SelectedElementAction()
         object DecreaseFontSize : SelectedElementAction()
         object ToggleBold : SelectedElementAction()

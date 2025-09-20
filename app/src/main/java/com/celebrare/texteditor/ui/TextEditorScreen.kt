@@ -131,12 +131,8 @@ private fun FontSizeDialog(initialSize: Int, onDismiss: () -> Unit, onConfirm: (
 
 @Composable
 private fun RenameTextDialog(element: TextElement, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    // THE DEFINITIVE FIX:
-    // 1. Create a local mutable state for the dialog's text field.
     val (text, setText) = remember { mutableStateOf(element.text) }
 
-    // 2. Use LaunchedEffect to explicitly synchronize the dialog's internal state
-    //    with the external element's text whenever the dialog is asked to show.
     LaunchedEffect(element) {
         setText(element.text)
     }
@@ -147,13 +143,13 @@ private fun RenameTextDialog(element: TextElement, onConfirm: (String) -> Unit, 
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = setText, // Update the internal state on user input
+                onValueChange = setText,
                 label = { Text("Enter new text") },
                 singleLine = true
             )
         },
         confirmButton = {
-            Button(onClick = { onConfirm(text) }) { // Confirm using the internal state
+            Button(onClick = { onConfirm(text) }) {
                 Text("Rename")
             }
         },

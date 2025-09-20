@@ -23,7 +23,6 @@ class TextEditorViewModel : ViewModel() {
     private var historyIndex = -1
 
     init {
-        // Add the initial, empty state to the history
         history.add(state.copy())
         historyIndex = 0
     }
@@ -31,14 +30,12 @@ class TextEditorViewModel : ViewModel() {
     private fun updateState(newState: EditorState, addToHistory: Boolean = true) {
         if (addToHistory) {
             if (historyIndex < history.size - 1) {
-                // If we perform a new action after undoing, clear the "redo" history
                 history.subList(historyIndex + 1, history.size).clear()
             }
             history.add(newState.copy(textElements = newState.textElements.map { it.copy() }))
             historyIndex++
         }
 
-        // This is the single point of truth for updating the UI state
         state = newState.copy(
             canUndo = historyIndex > 0,
             canRedo = historyIndex < history.size - 1
@@ -64,7 +61,6 @@ class TextEditorViewModel : ViewModel() {
             EditorAction.Undo -> undo()
             EditorAction.Redo -> redo()
             EditorAction.SaveDrag -> {
-                // When a drag or alignment change finishes, save it to history
                 updateState(state.copy(), addToHistory = true)
             }
             is EditorAction.SelectedElementAction -> applyToSelectedElement(action)

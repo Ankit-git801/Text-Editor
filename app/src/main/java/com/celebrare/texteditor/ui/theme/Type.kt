@@ -8,7 +8,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.celebrare.texteditor.R
 
-// Define the custom font families using the resources from the res/font folder
 val LobsterFamily = FontFamily(
     Font(R.font.lobster_regular, FontWeight.Normal)
 )
@@ -21,7 +20,6 @@ val InconsolataFamily = FontFamily(
     Font(R.font.inconsolata_regular, FontWeight.Normal)
 )
 
-// Set of Material typography styles to start with
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,

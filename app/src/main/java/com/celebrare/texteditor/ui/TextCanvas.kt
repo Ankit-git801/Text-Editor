@@ -77,8 +77,6 @@ private fun DraggableText(
     var offset by remember { mutableStateOf(element.position) }
     var composableSize by remember { mutableStateOf(IntSize.Zero) }
 
-    // This is the key fix. This effect runs whenever the alignment or text size changes.
-    // It calculates the correct position based on the REAL measured size of the composable.
     LaunchedEffect(element.textAlign, composableSize.width, canvasWidth) {
         if (composableSize.width > 0 && canvasWidth > 0) {
             val textWidth = composableSize.width.toFloat()
@@ -86,15 +84,13 @@ private fun DraggableText(
                 TextAlign.Start -> 0f
                 TextAlign.Center -> (canvasWidth - textWidth) / 2f
                 TextAlign.End -> canvasWidth - textWidth
-                else -> offset.x // Should not happen
+                else -> offset.x
             }
-            // Coerce the value to ensure it never goes outside the bounds.
             val clampedX = newX.coerceIn(0f, canvasWidth - textWidth)
             if (offset.x != clampedX) {
                 val newOffset = offset.copy(x = clampedX)
                 offset = newOffset
                 onAction(EditorAction.MoveElement(element.id, newOffset))
-                onAction(EditorAction.SaveDrag) // Save this alignment change to history
             }
         }
     }
@@ -106,7 +102,7 @@ private fun DraggableText(
     Box(
         modifier = Modifier
             .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-            .onSizeChanged { composableSize = it } // This gets the REAL size of the composable
+            .onSizeChanged { composableSize = it }
             .pointerInput(element.id) {
                 detectTapGestures(
                     onTap = {

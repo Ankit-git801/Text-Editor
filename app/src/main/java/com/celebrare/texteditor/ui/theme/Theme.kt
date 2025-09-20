@@ -9,14 +9,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Define the new green color scheme
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryGreen,
     onPrimary = White,
     primaryContainer = LightGreen,
     secondary = DarkGreen,
-    background = LightGreen, // Use our soft green for the main background
-    surface = White, // Keep cards and dialogs clean and white
+    background = LightGreen,
+    surface = White,
     onBackground = DarkGray,
     onSurface = DarkGray,
     error = AccentRed
@@ -36,7 +35,7 @@ fun TextEditorTheme(
     }
 
     MaterialTheme(
-        colorScheme = LightColorScheme, // Apply the new green color scheme
+        colorScheme = LightColorScheme,
         typography = Typography,
         content = content
     )
