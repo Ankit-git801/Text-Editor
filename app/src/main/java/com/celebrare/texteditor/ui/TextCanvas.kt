@@ -4,12 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -17,8 +25,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -71,17 +77,26 @@ private fun DraggableText(
     var offset by remember { mutableStateOf(element.position) }
     var composableSize by remember { mutableStateOf(IntSize.Zero) }
 
-    // This effect ensures that when alignment changes, the offset is recalculated and clamped.
-    LaunchedEffect(element.textAlign, composableSize.width) {
-        val textWidth = composableSize.width.toFloat()
-        val newX = when (element.textAlign) {
-            TextAlign.Start -> 0f
-            TextAlign.Center -> (canvasWidth / 2f) - (textWidth / 2f)
-            TextAlign.End -> canvasWidth - textWidth
-            else -> offset.x
+    // This is the key fix. This effect runs whenever the alignment or text size changes.
+    // It calculates the correct position based on the REAL measured size of the composable.
+    LaunchedEffect(element.textAlign, composableSize.width, canvasWidth) {
+        if (composableSize.width > 0 && canvasWidth > 0) {
+            val textWidth = composableSize.width.toFloat()
+            val newX = when (element.textAlign) {
+                TextAlign.Start -> 0f
+                TextAlign.Center -> (canvasWidth - textWidth) / 2f
+                TextAlign.End -> canvasWidth - textWidth
+                else -> offset.x // Should not happen
+            }
+            // Coerce the value to ensure it never goes outside the bounds.
+            val clampedX = newX.coerceIn(0f, canvasWidth - textWidth)
+            if (offset.x != clampedX) {
+                val newOffset = offset.copy(x = clampedX)
+                offset = newOffset
+                onAction(EditorAction.MoveElement(element.id, newOffset))
+                onAction(EditorAction.SaveDrag) // Save this alignment change to history
+            }
         }
-        offset = offset.copy(x = newX.coerceIn(0f, canvasWidth - textWidth))
-        onAction(EditorAction.MoveElement(element.id, offset))
     }
 
     LaunchedEffect(element.position) {
@@ -91,7 +106,7 @@ private fun DraggableText(
     Box(
         modifier = Modifier
             .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-            .onSizeChanged { composableSize = it }
+            .onSizeChanged { composableSize = it } // This gets the REAL size of the composable
             .pointerInput(element.id) {
                 detectTapGestures(
                     onTap = {

@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -20,69 +19,148 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.celebrare.texteditor.R
 import com.celebrare.texteditor.model.EditorAction
 import com.celebrare.texteditor.model.TextElement
+import com.celebrare.texteditor.ui.theme.TextEditorTheme
 import com.celebrare.texteditor.viewmodel.TextEditorViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextEditorScreen(modifier: Modifier = Modifier, viewModel: TextEditorViewModel = viewModel()) {
-    val state = viewModel.state
+    TextEditorTheme {
+        val state = viewModel.state
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.app_name), fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, titleContentColor = Color.Black)
-            )
-        },
-        bottomBar = {
-            Column {
-                FormattingToolbar(selectedElement = state.textElements.find { it.id == state.selectedElementId }, onAction = viewModel::handleAction)
-                Button(onClick = { viewModel.handleAction(EditorAction.ShowAddTextDialog) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(0.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0E0E0))) {
-                    Icon(Icons.Default.Add, "Add Text", tint = Color.Black); Spacer(Modifier.width(8.dp)); Text("Add Text", style = MaterialTheme.typography.titleMedium, color = Color.Black)
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(id = R.string.app_name), fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    )
+                )
+            },
+            bottomBar = {
+                Column {
+                    FormattingToolbar(selectedElement = state.textElements.find { it.id == state.selectedElementId }, onAction = viewModel::handleAction)
+                    Button(
+                        onClick = { viewModel.handleAction(EditorAction.ShowAddTextDialog) },
+                        modifier = Modifier.fillMaxWidth().height(64.dp),
+                        shape = RoundedCornerShape(0.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Add, "Add Text")
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add Text", style = MaterialTheme.typography.titleMedium)
+                    }
                 }
             }
-        }
-    ) { paddingValues ->
-        Column(modifier = modifier.padding(paddingValues).padding(horizontal = 16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.handleAction(EditorAction.Undo) }, enabled = state.canUndo) { Icon(Icons.Default.Undo, "Undo") }
-                Spacer(modifier = Modifier.width(24.dp))
-                IconButton(onClick = { viewModel.handleAction(EditorAction.Redo) }, enabled = state.canRedo) { Icon(Icons.Default.Redo, "Redo") }
+        ) { paddingValues ->
+            Column(
+                modifier = modifier.padding(paddingValues).padding(horizontal = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { viewModel.handleAction(EditorAction.Undo) }, enabled = state.canUndo) { Icon(Icons.Default.Undo, "Undo") }
+                    Spacer(modifier = Modifier.width(24.dp))
+                    IconButton(onClick = { viewModel.handleAction(EditorAction.Redo) }, enabled = state.canRedo) { Icon(Icons.Default.Redo, "Redo") }
+                }
+                Surface(
+                    modifier = Modifier.weight(1f).padding(bottom = 8.dp),
+                    shadowElevation = 4.dp,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    TextCanvas(state = state, onAction = viewModel::handleAction)
+                }
             }
-            Box(modifier = Modifier.weight(1f).padding(bottom = 8.dp)) {
-                TextCanvas(state = state, onAction = viewModel::handleAction)
-            }
-        }
 
-        if (state.isAddTextDialogOpen) {
-            AddTextDialog(onDismiss = { viewModel.handleAction(EditorAction.HideAddTextDialog) }, onConfirm = { viewModel.handleAction(EditorAction.AddText(it)) })
-        }
-        if (state.isFontSizeDialogOpen) {
-            FontSizeDialog(initialSize = state.textElements.find { it.id == state.selectedElementId }?.fontSize ?: 24, onDismiss = { viewModel.handleAction(EditorAction.CloseFontSizeDialog) }, onConfirm = { newSize ->
-                viewModel.handleAction(EditorAction.SelectedElementAction.SetFontSize(newSize))
-                viewModel.handleAction(EditorAction.CloseFontSizeDialog)
-            })
-        }
-        state.elementToRename?.let { element ->
-            RenameTextDialog(element = element, onConfirm = { newText ->
-                viewModel.handleAction(EditorAction.UpdateText(element.id, newText))
-                viewModel.handleAction(EditorAction.CloseRenameDialog)
-            }, onDismiss = { viewModel.handleAction(EditorAction.CloseRenameDialog) })
+            if (state.isAddTextDialogOpen) {
+                AddTextDialog(
+                    onDismiss = { viewModel.handleAction(EditorAction.HideAddTextDialog) },
+                    onConfirm = { text -> viewModel.handleAction(EditorAction.AddText(text)) }
+                )
+            }
+            if (state.isFontSizeDialogOpen) {
+                FontSizeDialog(
+                    initialSize = state.textElements.find { it.id == state.selectedElementId }?.fontSize ?: 24,
+                    onDismiss = { viewModel.handleAction(EditorAction.CloseFontSizeDialog) },
+                    onConfirm = { newSize ->
+                        viewModel.handleAction(EditorAction.SelectedElementAction.SetFontSize(newSize))
+                        viewModel.handleAction(EditorAction.CloseFontSizeDialog)
+                    }
+                )
+            }
+            state.elementToRename?.let { element ->
+                RenameTextDialog(
+                    element = element,
+                    onConfirm = { newText ->
+                        viewModel.handleAction(EditorAction.UpdateText(element.id, newText))
+                        viewModel.handleAction(EditorAction.CloseRenameDialog)
+                    },
+                    onDismiss = { viewModel.handleAction(EditorAction.CloseRenameDialog) }
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun AddTextDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Add Your Text") }, text = { OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("Enter text") }) }, confirmButton = { Button(onClick = { if (text.isNotBlank()) onConfirm(text) }) { Text("Add") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Your Text") },
+        text = { OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("Enter text") }) },
+        confirmButton = { Button(onClick = { if (text.isNotBlank()) onConfirm(text) }) { Text("Add") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
 private fun FontSizeDialog(initialSize: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
-    var sizeText by remember { mutableStateOf(initialSize.toString()) }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Set Font Size") }, text = { OutlinedTextField(value = sizeText, onValueChange = { sizeText = it.filter { c -> c.isDigit() } }, label = { Text("Size (10-100)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) }, confirmButton = { Button(onClick = { sizeText.toIntOrNull()?.let(onConfirm) }) { Text("Set") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    var sizeText by remember { mutableStateOf(initialSize.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Font Size") },
+        text = { OutlinedTextField(value = sizeText, onValueChange = { sizeText = it.filter { c -> c.isDigit() } }, label = { Text("Size (10-100)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) },
+        confirmButton = { Button(onClick = { sizeText.toIntOrNull()?.let(onConfirm) }) { Text("Set") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
 private fun RenameTextDialog(element: TextElement, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var newText by remember { mutableStateOf(element.text) }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Rename Text") }, text = { OutlinedTextField(value = newText, onValueChange = { newText = it }, label = { Text("Enter new text") }, singleLine = true) }, confirmButton = { Button(onClick = { onConfirm(newText) }) { Text("Rename") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    // THE DEFINITIVE FIX:
+    // 1. Create a local mutable state for the dialog's text field.
+    val (text, setText) = remember { mutableStateOf(element.text) }
+
+    // 2. Use LaunchedEffect to explicitly synchronize the dialog's internal state
+    //    with the external element's text whenever the dialog is asked to show.
+    LaunchedEffect(element) {
+        setText(element.text)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Text") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = setText, // Update the internal state on user input
+                label = { Text("Enter new text") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(text) }) { // Confirm using the internal state
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

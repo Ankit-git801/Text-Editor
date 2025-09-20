@@ -23,25 +23,23 @@ class TextEditorViewModel : ViewModel() {
     private var historyIndex = -1
 
     init {
-        saveStateToHistory(state)
+        // Add the initial, empty state to the history
+        history.add(state.copy())
+        historyIndex = 0
     }
 
-    private fun saveStateToHistory(newState: EditorState) {
-        if (historyIndex < history.size - 1) {
-            history.subList(historyIndex + 1, history.size).clear()
+    private fun updateState(newState: EditorState, addToHistory: Boolean = true) {
+        if (addToHistory) {
+            if (historyIndex < history.size - 1) {
+                // If we perform a new action after undoing, clear the "redo" history
+                history.subList(historyIndex + 1, history.size).clear()
+            }
+            history.add(newState.copy(textElements = newState.textElements.map { it.copy() }))
+            historyIndex++
         }
-        history.add(newState.copy(textElements = newState.textElements.map { it.copy() }))
-        historyIndex++
-        updateUndoRedoStatus(newState)
-    }
 
-    private fun updateState(newState: EditorState) {
-        state = newState
-        updateUndoRedoStatus(state)
-    }
-
-    private fun updateUndoRedoStatus(currentState: EditorState) {
-        state = currentState.copy(
+        // This is the single point of truth for updating the UI state
+        state = newState.copy(
             canUndo = historyIndex > 0,
             canRedo = historyIndex < history.size - 1
         )
@@ -51,50 +49,46 @@ class TextEditorViewModel : ViewModel() {
         when (action) {
             is EditorAction.AddText -> addText(action.text)
             is EditorAction.UpdateText -> updateText(action.elementId, action.newText)
-            is EditorAction.OpenRenameDialog -> updateState(state.copy(elementToRename = action.element))
-            is EditorAction.CloseRenameDialog -> updateState(state.copy(elementToRename = null))
-            is EditorAction.OpenFontSizeDialog -> updateState(state.copy(isFontSizeDialogOpen = true))
-            is EditorAction.CloseFontSizeDialog -> updateState(state.copy(isFontSizeDialogOpen = false))
-            is EditorAction.MoveElement -> moveElement(action.elementId, action.newPosition)
-            is EditorAction.SelectElement -> updateState(state.copy(selectedElementId = action.elementId))
-            is EditorAction.UpdateCanvasSize -> updateState(state.copy(canvasSize = action.newSize))
-            is EditorAction.ShowAddTextDialog -> updateState(state.copy(isAddTextDialogOpen = true))
-            is EditorAction.HideAddTextDialog -> updateState(state.copy(isAddTextDialogOpen = false))
+            is EditorAction.OpenRenameDialog -> updateState(state.copy(elementToRename = action.element), addToHistory = false)
+            is EditorAction.CloseRenameDialog -> updateState(state.copy(elementToRename = null), addToHistory = false)
+            is EditorAction.OpenFontSizeDialog -> updateState(state.copy(isFontSizeDialogOpen = true), addToHistory = false)
+            is EditorAction.CloseFontSizeDialog -> updateState(state.copy(isFontSizeDialogOpen = false), addToHistory = false)
+            is EditorAction.MoveElement -> {
+                val newElements = state.textElements.map { if (it.id == action.elementId) it.copy(position = action.newPosition) else it }
+                updateState(state.copy(textElements = newElements), addToHistory = false)
+            }
+            is EditorAction.SelectElement -> updateState(state.copy(selectedElementId = action.elementId), addToHistory = false)
+            is EditorAction.UpdateCanvasSize -> updateState(state.copy(canvasSize = action.newSize), addToHistory = false)
+            is EditorAction.ShowAddTextDialog -> updateState(state.copy(isAddTextDialogOpen = true), addToHistory = false)
+            is EditorAction.HideAddTextDialog -> updateState(state.copy(isAddTextDialogOpen = false), addToHistory = false)
             EditorAction.Undo -> undo()
             EditorAction.Redo -> redo()
-            EditorAction.SaveDrag -> saveStateToHistory(state)
+            EditorAction.SaveDrag -> {
+                // When a drag or alignment change finishes, save it to history
+                updateState(state.copy(), addToHistory = true)
+            }
             is EditorAction.SelectedElementAction -> applyToSelectedElement(action)
         }
     }
 
     private fun addText(text: String) {
-        val currentState = state
         val textWidth = 24 * text.length * 0.6f
         val textHeight = 24 * 1.2f
-        val initialX = (currentState.canvasSize.width / 2f) - (textWidth / 2f)
-        val initialY = (currentState.canvasSize.height / 2f) - (textHeight / 2f)
+        val initialX = (state.canvasSize.width / 2f) - (textWidth / 2f)
+        val initialY = (state.canvasSize.height / 2f) - (textHeight / 2f)
         val newElement = TextElement(text = text, position = Offset(initialX.coerceAtLeast(0f), initialY.coerceAtLeast(0f)))
-        saveStateToHistory(currentState.copy(textElements = currentState.textElements + newElement, selectedElementId = newElement.id, isAddTextDialogOpen = false))
+        val newState = state.copy(textElements = state.textElements + newElement, selectedElementId = newElement.id, isAddTextDialogOpen = false)
+        updateState(newState)
     }
 
     private fun updateText(elementId: String, newText: String) {
         val newElements = state.textElements.map { if (it.id == elementId) it.copy(text = newText) else it }
-        saveStateToHistory(state.copy(textElements = newElements))
-    }
-
-    private fun moveElement(elementId: String, newPosition: Offset) {
-        updateState(state.copy(
-            textElements = state.textElements.map {
-                if (it.id == elementId) it.copy(position = newPosition) else it
-            }
-        ))
+        updateState(state.copy(textElements = newElements))
     }
 
     private fun applyToSelectedElement(action: EditorAction.SelectedElementAction) {
-        val currentState = state
-        val selectedId = currentState.selectedElementId ?: return
-
-        val newElements = currentState.textElements.map { element ->
+        val selectedId = state.selectedElementId ?: return
+        val newElements = state.textElements.map { element ->
             if (element.id == selectedId) {
                 when (action) {
                     is EditorAction.SelectedElementAction.SetFontSize -> element.copy(fontSize = action.size.coerceIn(10, 100))
@@ -109,7 +103,7 @@ class TextEditorViewModel : ViewModel() {
                             TextAlign.Center -> TextAlign.End
                             else -> TextAlign.Start
                         }
-                        element.copy(textAlign = nextAlignment) // Only change the alignment state
+                        element.copy(textAlign = nextAlignment)
                     }
                     is EditorAction.SelectedElementAction.ChangeFontFamily -> element.copy(fontFamily = action.fontFamily)
                 }
@@ -117,20 +111,22 @@ class TextEditorViewModel : ViewModel() {
                 element
             }
         }
-        saveStateToHistory(currentState.copy(textElements = newElements))
+        updateState(state.copy(textElements = newElements))
     }
 
     private fun undo() {
         if (historyIndex > 0) {
             historyIndex--
-            updateState(history[historyIndex])
+            val previousState = history[historyIndex]
+            updateState(previousState, addToHistory = false)
         }
     }
 
     private fun redo() {
         if (historyIndex < history.size - 1) {
             historyIndex++
-            updateState(history[historyIndex])
+            val nextState = history[historyIndex]
+            updateState(nextState, addToHistory = false)
         }
     }
 }
